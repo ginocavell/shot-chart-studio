@@ -20,13 +20,14 @@ export function makeCourtTexture(paint: string, maxSize: number) {
     let y = -rnd() * S * 5;
     while (y < H) {
       const len = S * (3.5 + rnd() * 5), v = rnd();
-      g.fillStyle = `rgb(${Math.round(196 + v * 24)},${Math.round(150 + v * 22)},${Math.round(92 + v * 18)})`;
+      const red = rnd() < 0.12 ? 16 : 0; // the odd plank runs darker and pinker, as real maple does
+      g.fillStyle = `rgb(${Math.round(224 + v * 22 - red * 0.4)},${Math.round(192 + v * 24 - red)},${Math.round(152 + v * 26 - red * 1.3)})`;
       g.fillRect(x, y, plank - 0.6, len - 1);
       y += len;
     }
   }
   for (let i = 0; i < 14000; i++) {
-    g.fillStyle = rnd() < 0.5 ? "rgba(84,50,18,.05)" : "rgba(255,236,200,.05)";
+    g.fillStyle = rnd() < 0.5 ? "rgba(120,80,40,.045)" : "rgba(255,244,224,.06)";
     g.fillRect(rnd() * W, rnd() * H, 1.2, S * (0.6 + rnd() * 3));
   }
 
@@ -52,6 +53,26 @@ export function makeCourtTexture(paint: string, maxSize: number) {
   // lane hash marks
   for (const side of [-1, 1]) for (const z of [2.25, 3.25, 6.25, 9.25]) { g.beginPath(); g.moveTo(X(side * 8), Z(z)); g.lineTo(X(side * 8.7), Z(z)); g.stroke(); }
 
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  return tex;
+}
+
+/** The painted border around the court: team color, with the site's wordmark along the baseline and sidelines. */
+export function makeApronTexture(paint: string) {
+  const S = 30, N = 66 * S;
+  const c = document.createElement("canvas"); c.width = N; c.height = N;
+  const g = c.getContext("2d")!, rnd = mulberry(19);
+  const col = new THREE.Color(paint).multiplyScalar(0.6);
+  g.fillStyle = `#${col.getHexString()}`; g.fillRect(0, 0, N, N);
+  for (let i = 0; i < 5000; i++) { g.fillStyle = rnd() < 0.5 ? "rgba(0,0,0,.05)" : "rgba(255,255,255,.035)"; g.fillRect(rnd() * N, rnd() * N, 1.5, S * (1 + rnd() * 4)); }
+  // canvas covers x -33..33 and z -14.75..51.25; top of the canvas is behind the baseline
+  const X = (ft: number) => (ft + 33) * S, Z = (ft: number) => (ft + 14.75) * S;
+  g.fillStyle = "rgba(255,255,255,.92)"; g.textAlign = "center"; g.textBaseline = "middle";
+  g.font = `italic 800 ${S * 2.5}px "Barlow Condensed", "Arial Narrow", Impact, sans-serif`;
+  g.fillText("SHOT CHART", X(-13.5), Z(-7.3));
+  g.fillText("STUDIO", X(13.5), Z(-7.3));
+  for (const side of [-1, 1]) { g.save(); g.translate(X(side * 28.6), Z(20)); g.rotate(side * Math.PI / 2); g.fillText("SHOT CHART STUDIO", 0, 0); g.restore(); }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
   return tex;

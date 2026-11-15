@@ -5,7 +5,7 @@ import { TEAM_NAME, teamColor } from "./teams";
 
 const DEFAULT_PLAYER = 1628378; // Donovan Mitchell
 const ZONE_LABEL = ["Restricted area", "Paint", "Mid-range", "Left corner 3", "Right corner 3", "Above the break 3"];
-const CAM_LABEL: Record<CamKey, string> = { main: "Main", sideline: "Sideline", baseline: "Baseline", overhead: "Overhead" };
+const CAM_LABEL: Record<CamKey, string> = { main: "Main", floor: "Courtside", sideline: "Sideline", baseline: "Baseline", overhead: "Overhead" };
 
 function readHash() {
   const m = /^#p(\d+)-s(\d{4}-\d{2})$/.exec(location.hash);

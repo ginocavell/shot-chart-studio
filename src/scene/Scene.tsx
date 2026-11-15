@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { MeshReflectorMaterial, OrbitControls } from "@react-three/drei";
@@ -8,25 +8,28 @@ import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeome
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import type { ShotFile } from "../data";
 import { SEG, arcPoint } from "./arc";
-import { BASE_Z, COURT_L, COURT_W, makeCourtTexture } from "./courtTexture";
+import { BASE_Z, COURT_L, COURT_W, makeApronTexture, makeCourtTexture } from "./courtTexture";
+import { Arena, Hoop } from "./Arena";
 
 export type Replay = { shown: number; flying: number; u: number };
-export type CamKey = "main" | "sideline" | "baseline" | "overhead";
+export type CamKey = "main" | "floor" | "sideline" | "baseline" | "overhead";
 
 type Props = { shots: ShotFile | null; idx: number[]; moves: string[]; color: string; focus: boolean; replay: React.MutableRefObject<Replay>; cam: CamKey; camNonce: number; lite: boolean };
 
 const CAMS: Record<CamKey, { p: [number, number, number]; t: [number, number, number] }> = {
   main: { p: [24, 19, 64], t: [0, 4.5, 9] },
+  floor: { p: [0, 5.2, 61], t: [0, 9.5, 0] },
   sideline: { p: [64, 26, 24], t: [0, 2.5, 15] },
-  baseline: { p: [0, 17, -31], t: [0, 2, 17] },
+  baseline: { p: [17, 15, -25], t: [0, 3, 15] },
   overhead: { p: [0, 88, 19.5], t: [0, 0, 19] },
 };
 
-function Floor({ color, lite }: { color: string; lite: boolean }) {
+function Floor({ color, lite, fontTick }: { color: string; lite: boolean; fontTick: number }) {
   const gl = useThree((s) => s.gl);
   const tex = useMemo(() => makeCourtTexture(color, Math.min(4096, gl.capabilities.maxTextureSize)), [color, gl]);
   useEffect(() => () => tex.dispose(), [tex]);
-  const apron = useMemo(() => new THREE.Color(color).multiplyScalar(0.3), [color]);
+  const apron = useMemo(() => makeApronTexture(color), [color, fontTick]);
+  useEffect(() => () => apron.dispose(), [apron]);
   return (
     <group>
       <mesh rotation-x={-Math.PI / 2} position={[0, 0, BASE_Z + COURT_L / 2]} receiveShadow>
@@ -34,102 +37,21 @@ function Floor({ color, lite }: { color: string; lite: boolean }) {
         {lite ? (
           <meshStandardMaterial map={tex} roughness={0.42} />
         ) : (
-          <MeshReflectorMaterial map={tex} resolution={1024} mirror={0.55} mixBlur={6} mixStrength={0.55} blur={[320, 90]} roughness={0.62} metalness={0} depthScale={0} />
+          <MeshReflectorMaterial map={tex} resolution={1024} mirror={0.7} mixBlur={5} mixStrength={0.85} blur={[260, 70]} roughness={0.5} metalness={0} depthScale={0} />
         )}
       </mesh>
-      <mesh rotation-x={-Math.PI / 2} position={[0, -0.04, BASE_Z + COURT_L / 2 - 2]} receiveShadow>
-        <planeGeometry args={[COURT_W + 14, COURT_L + 14]} />
-        <meshStandardMaterial color={apron} roughness={0.5} />
+      <mesh rotation-x={-Math.PI / 2} position={[0, -0.04, 18.25]} receiveShadow>
+        <planeGeometry args={[66, 66]} />
+        <meshStandardMaterial map={apron} roughness={0.42} />
+      </mesh>
+      <mesh rotation-x={-Math.PI / 2} position={[0, -0.07, 30]}>
+        <planeGeometry args={[70, 150]} />
+        <meshStandardMaterial color="#10131c" roughness={0.6} />
       </mesh>
       <mesh rotation-x={-Math.PI / 2} position={[0, -0.1, 20]}>
         <planeGeometry args={[900, 900]} />
         <meshBasicMaterial color="#030407" />
       </mesh>
-    </group>
-  );
-}
-
-function Hoop() {
-  return (
-    <group>
-      <mesh position={[0, 10.75, -1.25]}>
-        <boxGeometry args={[6, 3.5, 0.1]} />
-        <meshPhysicalMaterial color="#dfe9ff" transparent opacity={0.16} roughness={0.05} metalness={0} />
-      </mesh>
-      <lineSegments position={[0, 10.75, -1.25]}>
-        <edgesGeometry args={[new THREE.BoxGeometry(6, 3.5, 0.1)]} />
-        <lineBasicMaterial color="#ffffff" />
-      </lineSegments>
-      <lineSegments position={[0, 10.75, -1.19]}>
-        <edgesGeometry args={[new THREE.BoxGeometry(2, 1.5, 0.01)]} />
-        <lineBasicMaterial color="#ffffff" />
-      </lineSegments>
-      <mesh position={[0, 10, 0]} rotation-x={Math.PI / 2}>
-        <torusGeometry args={[0.75, 0.055, 12, 48]} />
-        <meshStandardMaterial color="#ff5a1f" emissive="#b23200" emissiveIntensity={0.9} roughness={0.35} />
-      </mesh>
-      <mesh position={[0, 9.32, 0]}>
-        <cylinderGeometry args={[0.75, 0.46, 1.36, 16, 5, true]} />
-        <meshBasicMaterial color="#ffffff" wireframe transparent opacity={0.4} />
-      </mesh>
-      <mesh position={[0, 9.9, -0.95]}>
-        <boxGeometry args={[0.5, 0.35, 0.6]} />
-        <meshStandardMaterial color="#c2401a" roughness={0.5} />
-      </mesh>
-      <mesh position={[0, 9.4, -4.4]} rotation-x={-0.16} castShadow>
-        <boxGeometry args={[0.7, 0.7, 6.4]} />
-        <meshStandardMaterial color="#11151f" roughness={0.6} />
-      </mesh>
-      <mesh position={[0, 4.6, -7.9]} castShadow>
-        <boxGeometry args={[1.5, 9.2, 1.4]} />
-        <meshStandardMaterial color="#11151f" roughness={0.7} />
-      </mesh>
-      <mesh position={[0, 0.5, -8.4]} castShadow>
-        <boxGeometry args={[4.2, 1, 4.6]} />
-        <meshStandardMaterial color="#0c0f17" roughness={0.8} />
-      </mesh>
-    </group>
-  );
-}
-
-function Arena({ color }: { color: string }) {
-  // Lights-down bowl: dark tiers on three sides, a lit ribbon board, and a scatter of phone lights in the crowd.
-  const crowd = useMemo(() => {
-    const n = 1500, pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
-    let s = 11; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-    for (let i = 0; i < n; i++) {
-      const tier = 2 + rnd() * 36, side = Math.floor(rnd() * 3), along = rnd() * 2 - 1, y = 3.4 + Math.floor(tier / 5) * 3.1;
-      if (side === 0) { pos[i * 3] = -(34 + tier); pos[i * 3 + 2] = 18 + along * 50; }
-      else if (side === 1) { pos[i * 3] = 34 + tier; pos[i * 3 + 2] = 18 + along * 50; }
-      else { pos[i * 3] = along * 56; pos[i * 3 + 2] = -(14 + tier); }
-      pos[i * 3 + 1] = y;
-      const b = 0.05 + rnd() * rnd() * 0.4, warm = rnd();
-      col[i * 3] = b; col[i * 3 + 1] = b * (0.86 + warm * 0.14); col[i * 3 + 2] = b * (0.7 + (1 - warm) * 0.3);
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("color", new THREE.BufferAttribute(col, 3));
-    return g;
-  }, []);
-  const tiers = [0, 1, 2, 3, 4, 5, 6, 7];
-  const ribbon = useMemo(() => new THREE.Color(color).multiplyScalar(0.55), [color]);
-  return (
-    <group>
-      {tiers.map((t) => {
-        const h = 3 + t * 3.1, off = 34 + t * 5 + 2.5;
-        return (
-          <group key={t}>
-            <mesh position={[-off, h / 2, 18]}><boxGeometry args={[5, h, 112]} /><meshStandardMaterial color="#1a2033" roughness={1} /></mesh>
-            <mesh position={[off, h / 2, 18]}><boxGeometry args={[5, h, 112]} /><meshStandardMaterial color="#1a2033" roughness={1} /></mesh>
-            <mesh position={[0, h / 2, -(14 + t * 5 + 2.5)]}><boxGeometry args={[68 + t * 10 + 10, h, 5]} /><meshStandardMaterial color="#1a2033" roughness={1} /></mesh>
-          </group>
-        );
-      })}
-      <mesh position={[-33.95, 2.5, 18]}><boxGeometry args={[0.1, 0.5, 112]} /><meshBasicMaterial color={ribbon} /></mesh>
-      <mesh position={[33.95, 2.5, 18]}><boxGeometry args={[0.1, 0.5, 112]} /><meshBasicMaterial color={ribbon} /></mesh>
-      <mesh position={[0, 2.5, -13.95]}><boxGeometry args={[68, 0.5, 0.1]} /><meshBasicMaterial color={ribbon} /></mesh>
-      <points geometry={crowd}>
-        <pointsMaterial size={0.34} vertexColors transparent opacity={0.9} blending={THREE.AdditiveBlending} depthWrite={false} sizeAttenuation />
-      </points>
     </group>
   );
 }
@@ -142,8 +64,8 @@ function Lights({ color, lite }: { color: string; lite: boolean }) {
   }, []);
   return (
     <>
-      <hemisphereLight args={["#aab8e6", "#0a0806", 0.16]} />
-      <spotLight ref={key} position={[0, 74, 24]} angle={0.52} penumbra={0.75} decay={0} intensity={2.5} color="#fff3e0"
+      <hemisphereLight args={["#b9c6f0", "#0a0806", 0.3]} />
+      <spotLight ref={key} position={[0, 74, 24]} angle={0.52} penumbra={0.75} decay={0} intensity={2.35} color="#fff6ea"
         castShadow={!lite} shadow-mapSize={[2048, 2048]} shadow-bias={-0.0003} shadow-normalBias={0.04} />
       <spotLight ref={l} position={[-52, 34, 6]} angle={0.5} penumbra={1} decay={0} intensity={0.9} color={color} />
       <spotLight ref={r} position={[52, 34, 6]} angle={0.5} penumbra={1} decay={0} intensity={0.9} color={color} />
@@ -293,15 +215,17 @@ function CameraRig({ cam, camNonce }: { cam: CamKey; camNonce: number }) {
 
 export default function Scene(props: Props) {
   const { color, lite } = props;
+  const [fontTick, setFontTick] = useState(0); // repaint signage once the display font has loaded
+  useEffect(() => { (document as any).fonts?.ready.then(() => setFontTick(1)); }, []);
   return (
     <Canvas shadows={!lite} dpr={[1, lite ? 1.5 : 2]} camera={{ fov: 36, near: 0.5, far: 900, position: CAMS.main.p }} gl={{ antialias: true, powerPreference: "high-performance" }}
       aria-label="3D basketball court showing this player's shots" role="img">
       <color attach="background" args={["#030407"]} />
-      <fog attach="fog" args={["#030407", 120, 330]} />
+      <fog attach="fog" args={["#030407", 190, 560]} />
       <Lights color={color} lite={lite} />
-      <Floor color={color} lite={lite} />
-      <Hoop />
-      <Arena color={color} />
+      <Floor color={color} lite={lite} fontTick={fontTick} />
+      <Hoop color={color} />
+      <Arena color={color} fontTick={fontTick} />
       <Markers {...props} />
       <Trails {...props} />
       <LiveShot {...props} />
